@@ -16,7 +16,7 @@ env:
 
 jobs:
   build-windows:
-    name: Windows x64 (MSVC + Qt ${{ env.QT_VERSION }})
+    name: Windows x64 (MSVC + Qt 6.8.3)
     runs-on: windows-2022
 
     steps:
