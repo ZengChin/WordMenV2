@@ -155,6 +155,20 @@ ctest --test-dir build --output-on-failure
 > 换目录后配置会报 “CMakeCache.txt directory … is different” 错误。此时删除整个
 > `build/` 目录重新构建即可。
 
+### 自动打包发布（CI）
+
+仓库内置 GitHub Actions 工作流 `.github/workflows/release.yml`：推送 `v*` 标签时，
+自动在 `windows-2022` 上用 Qt 6.8.3 + MSVC 构建、运行单元测试、经 `windeployqt`
+收集运行库并打包成免安装绿色版 zip，最后创建对应的 GitHub Release。
+
+```powershell
+# 发布一个新版本（版本号需与 CMakeLists.txt 的 project(VERSION) 保持一致）
+git tag v0.4.0
+git push origin v0.4.0
+```
+
+> 也可在 GitHub 仓库的 **Actions** 页手动触发（`workflow_dispatch`）进行调试构建。
+
 ## 项目结构
 
 ```
@@ -186,8 +200,10 @@ WordMem/
 │   └── data/                # 词库种子 JSON（注册表 + 各词书）
 ├── tests/                   # Qt Test 单元测试（4 组）
 ├── third_party/miniz/       # vendored zip 解压库（.apkg 导入用，MIT）
-└── scripts/
-    └── build_windows.ps1    # 一键构建 / 测试 / 部署 / 打包脚本
+├── scripts/
+│   └── build_windows.ps1    # 一键构建 / 测试 / 部署 / 打包脚本
+└── .github/workflows/
+    └── release.yml          # CI：推送 v* 标签时自动构建 + 测试 + 打包发布 Release
 ```
 
 ## 技术栈

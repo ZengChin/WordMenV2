@@ -1,0 +1,98 @@
+name: Build & Release
+
+# 仅在推送 v* 标签时触发（发布），并保留手动触发入口便于调试。
+# 平时 push / PR 不构建，节省 CI 额度。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 创建 Release 需要写权限
+
+env:
+  QT_VERSION: '6.8.3'
+
+jobs:
+  build-windows:
+    name: Windows x64 (MSVC + Qt ${{ env.QT_VERSION }})
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 安装 Qt（含 TextToSpeech 的 qtspeech 与其依赖 qtmultimedia）
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: 'qtspeech qtmultimedia'
+          cache: true
+
+      # 复用项目脚本：自动定位 VS + Qt，执行 CMake + Ninja 构建并跑单元测试。
+      # 跳过脚本自带的部署/安装包步骤，改由下面两步在仓库内生成可预测路径的产物。
+      - name: Build & Test
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1 -SkipDeploy -SkipInstaller
+
+      # windeployqt 收集 Qt 运行库 + 拷贝 VC 运行库，得到自包含免安装绿色版
+      - name: Package (windeployqt + VC runtime)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $qt = (& qmake -query QT_INSTALL_PREFIX).Trim()
+          Write-Host "Qt prefix: $qt"
+
+          $stage = Join-Path '${{ github.workspace }}' 'dist\WordMem'
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item 'build\WordMem.exe' $stage
+
+          & (Join-Path $qt 'bin\windeployqt.exe') --release `
+              --no-compiler-runtime --no-translations `
+              --no-system-d3d-compiler --no-opengl-sw `
+              (Join-Path $stage 'WordMem.exe')
+          if ($LASTEXITCODE -ne 0) { throw 'windeployqt 失败' }
+
+          # 直接拷贝 CRT DLL，使产物免依赖系统已装的 VC++ 运行库
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1
+          $crtDir = Get-ChildItem (Join-Path $vsPath 'VC\Redist\MSVC') -Directory |
+                    Sort-Object Name -Descending |
+                    ForEach-Object { Get-ChildItem (Join-Path $_.FullName 'x64') -Directory -Filter 'Microsoft.VC*.CRT' } |
+                    Select-Object -First 1
+          if ($crtDir) {
+            foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll','concrt140.dll') {
+              $src = Join-Path $crtDir.FullName $dll
+              if (Test-Path $src) { Copy-Item $src $stage -Force }
+            }
+            Write-Host "已拷贝 VC 运行库: $($crtDir.Name)"
+          } else {
+            Write-Warning '未找到 VC Redist CRT 目录，产物需目标机已装 VC++ 运行库'
+          }
+
+      # 压成带版本号的 zip（版本号取自 tag，如 v0.4.0 -> 0.4.0）
+      - name: Zip
+        id: zip
+        shell: pwsh
+        run: |
+          $ver = '${{ github.ref_name }}' -replace '^v',''
+          if (-not $ver) { $ver = 'dev' }
+          $zip = "dist\WordMem-$ver-win-x64.zip"
+          Compress-Archive -Path 'dist\WordMem\*' -DestinationPath $zip -Force
+          Write-Host "打包完成: $zip"
+          "zip_path=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      # 打 tag 时自动创建 Release 并附上 zip
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.zip.outputs.zip_path }}
+          generate_release_notes: true
