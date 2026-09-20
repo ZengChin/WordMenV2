@@ -13,7 +13,7 @@
 背单词 · 间隔重复 · SM-2 记忆算法 · 艾宾浩斯遗忘曲线 · 雅思 / CET4 / CET6 / 考研 ·
 多词库切换 · 自定义导入 · 离线发音 · 便携绿色软件 · Qt6 · C++17 · SQLite
 
-[功能特性](#功能特性) · [快速上手](#快速上手) · [自定义词库](#自定义词库) · [开发构建](#开发构建) · [项目结构](#项目结构)
+[界面预览](#界面预览) · [功能特性](#功能特性) · [快速上手](#快速上手) · [自定义词库](#自定义词库) · [开发构建](#开发构建) · [项目结构](#项目结构)
 
 </div>
 
@@ -27,6 +27,26 @@ WordMem 是一款基于 **Qt6 (C++) + SQLite** 的桌面背单词应用，界面
 
 - **为谁准备**：备考雅思 / 考研等英语考试，希望有一款轻量、离线、无广告的桌面背单词工具的用户。
 - **核心理念**：极简界面 + 科学复习（SM-2 间隔重复），打开即背，背完即走。
+
+## 界面预览
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/home.png" width="240" alt="首页"><br><b>首页</b><br>词书进度与学习入口</td>
+    <td align="center"><img src="docs/images/study_question.png" width="240" alt="背单词·出题"><br><b>背单词·出题</b><br>单词 + 音标 + 发音</td>
+    <td align="center"><img src="docs/images/study_answer.png" width="240" alt="背单词·作答"><br><b>背单词·作答</b><br>释义 + 例句轮播</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/spell.png" width="240" alt="拼写练习"><br><b>拼写练习</b><br>看释义拼单词</td>
+    <td align="center"><img src="docs/images/word_list.png" width="240" alt="单词列表"><br><b>单词列表</b><br>全词浏览，点行显隐</td>
+    <td align="center"><img src="docs/images/settings.png" width="240" alt="设置"><br><b>设置</b><br>每组词数 / 重现间隔 / 发音</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/home_ghost.png" width="240" alt="隐形模式·首页"><br><b>隐形模式·首页</b><br>整窗透明，桌面透出</td>
+    <td align="center"><img src="docs/images/study_ghost.png" width="240" alt="隐形模式·背单词"><br><b>隐形模式·背单词</b><br>边工作边瞄单词</td>
+    <td align="center"><img src="docs/images/ghost_autohide.gif" width="240" alt="自动隐藏演示"><br><b>自动隐藏</b><br>鼠标移出仅留菜单栏</td>
+  </tr>
+</table>
 
 ## 功能特性
 
@@ -49,6 +69,13 @@ WordMem 是一款基于 **Qt6 (C++) + SQLite** 的桌面背单词应用，界面
 - **错词重现**：答错的词每隔若干词（默认 2，可在设置调整）在组内重现，直到答对为止。
 
 ### 词库选择与导入
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/book_manage.png" width="250" alt="词书管理"><br><b>词书管理</b><br>当前词书进度 + 一键切换</td>
+    <td align="center"><img src="docs/images/book_import.png" width="250" alt="导入词书"><br><b>导入词书</b><br>拖拽导入 + 推荐下载源</td>
+  </tr>
+</table>
 
 - **多词库独立进度**：内置雅思 / CET4 / CET6 / 考研四本词书；每本词书的学习进度、
   复习计划相互独立，互不干扰，切换即生效。
@@ -198,6 +225,7 @@ WordMem/
 ├── resources/
 │   ├── resources.qrc        # Qt 资源清单（内置词书嵌入可执行文件）
 │   └── data/                # 词库种子 JSON（注册表 + 各词书）
+├── docs/images/             # README 界面截图
 ├── tests/                   # Qt Test 单元测试（4 组）
 ├── third_party/miniz/       # vendored zip 解压库（.apkg 导入用，MIT）
 ├── scripts/
