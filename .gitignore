@@ -1,0 +1,119 @@
+# ============================================================
+# 构建产物目录
+# ============================================================
+# CMake + Ninja 构建输出（CMakePresets.json 中 binaryDir 指向此处）
+build/
+build-*/
+# 打包脚本 scripts/build_windows.ps1 的输出（windeployqt 部署 + Inno Setup 安装包）
+dist/
+# Inno Setup 编译产物
+*.iss.bak
+
+# 构建脚本自动下载的 Inno Setup 中文语言包
+packaging/Languages/
+
+# ============================================================
+# CMake
+# ============================================================
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+compile_commands.json
+Testing/
+# CMake 用户本地预设（保留 CMakePresets.json，忽略个人覆盖文件）
+CMakeUserPresets.json
+
+# ============================================================
+# Ninja / Make
+# ============================================================
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+Makefile
+
+# ============================================================
+# 编译中间文件与目标产物
+# ============================================================
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.ilk
+*.pdb
+*.exp
+*.idb
+*.tlog
+*.log
+# Qt 自动生成文件（AUTOMOC / AUTORCC）
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*_autogen/
+
+# ============================================================
+# Visual Studio / MSVC
+# ============================================================
+.vs/
+*.vcxproj.user
+*.sln.docstates
+*.suo
+*.user
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.opendb
+[Dd]ebug/
+[Rr]elease/
+[Rr]eleasewith[Dd]ebig[Ii]nfo/
+x64/
+x86/
+[Ee]ncoding/
+
+# ============================================================
+# Qt Creator / Qt 相关
+# ============================================================
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+.qtc_clangd/
+.stash/
+# Qt 打包工具生成的临时目录
+.qt/
+
+# ============================================================
+# CLion / VS Code / 其他 IDE
+# ============================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ============================================================
+# 操作系统
+# ============================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# macOS
+.DS_Store
+# Linux
+.directory
+.Trash-*
