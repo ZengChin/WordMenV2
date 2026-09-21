@@ -20,8 +20,16 @@
 namespace wordmem {
 
 namespace {
-const char *kTileQss = "QFrame { background:#f4f7f8; border-radius:10px; }";
+QString tileQss() {
+    // 统计/设置块底色：透明模式下改半透明白，与磨砂面板统一；普通模式保持浅灰实心。
+    // 必须用 #dlgTile 而非 QFrame 选择器：QLabel 也是 QFrame 子类，类型选择器会级联
+    // 给块内文字标签也刷上半透明底，多层叠加后文字区发白，故按 objectName 精确限定。
+    return theme::ghostMode()
+        ? QStringLiteral(
+              "#dlgTile { background: rgba(255,255,255,80); border-radius:10px; }")
+        : QStringLiteral("#dlgTile { background:#f4f7f8; border-radius:10px; }");
 }
+}  // namespace
 
 // ============================================================ BaseDialog
 BaseDialog::BaseDialog(const QString &title, QWidget *parent, const QSize &size,
@@ -44,8 +52,17 @@ BaseDialog::BaseDialog(const QString &title, QWidget *parent, const QSize &size,
 
     panel = new QFrame(this);
     panel->setObjectName(QStringLiteral("panel"));
-    panel->setStyleSheet(
-        QStringLiteral("#panel { background: white; border-radius: 14px; }"));
+    // 透明模式下改为磨砂半透明面板，并加一圈淡边框保证在任意桌面上可辨识；
+    // 普通模式保持纯白不透明。对话框每次新建后 exec()，构造期读取 ghost 状态即可。
+    if (theme::ghostMode()) {
+        panel->setStyleSheet(QStringLiteral(
+            "#panel { background: %1; border: 1px solid %2; border-radius: 14px; }")
+            .arg(theme::rgba(QStringLiteral("#ffffff"), 105),
+                 theme::rgba(QStringLiteral("#58646e"), 70)));
+    } else {
+        panel->setStyleSheet(
+            QStringLiteral("#panel { background: white; border-radius: 14px; }"));
+    }
     outer->addWidget(panel);
 
     auto *panelLay = new QVBoxLayout(panel);
@@ -77,24 +94,24 @@ StatsDialog::StatsDialog(AppContext &ctx, QWidget *parent)
     const StatsSummary stats = ctx.repo->statsSummary(QDate::currentDate());
 
     struct Tile {
-        const char *key;
+        QString key;
         int value;
         const char *color;
     };
     const Tile tiles[6] = {
-        {"词书总词数", stats.total, theme::INK_DARK},
-        {"已学习", stats.learned, theme::GREEN},
-        {"学习中", stats.learning, theme::INK_DARK},
-        {"已掌握", stats.mastered, theme::GREEN},
-        {"今日待复习", stats.due, theme::ORANGE},
-        {"今日已复习", stats.reviewedToday, theme::INK_DARK},
+        {QStringLiteral("词书总词数"), stats.total, theme::INK_DARK},
+        {QStringLiteral("已学习"), stats.learned, theme::GREEN},
+        {QStringLiteral("学习中"), stats.learning, theme::INK_DARK},
+        {QStringLiteral("已掌握"), stats.mastered, theme::GREEN},
+        {QStringLiteral("今日待复习"), stats.due, theme::ORANGE},
+        {QStringLiteral("今日已复习"), stats.reviewedToday, theme::INK_DARK},
     };
     auto *grid = new QGridLayout;
     grid->setHorizontalSpacing(10);
     grid->setVerticalSpacing(10);
     for (int i = 0; i < 6; ++i)
         grid->addWidget(
-            tile(QLatin1String(tiles[i].key), tiles[i].value,
+            tile(tiles[i].key, tiles[i].value,
                  QLatin1String(tiles[i].color)),
             i / 2, i % 2);
     body->addLayout(grid);
@@ -114,7 +131,8 @@ StatsDialog::StatsDialog(AppContext &ctx, QWidget *parent)
 QWidget *StatsDialog::tile(const QString &key, int value, const QString &color) {
     // 浅色圆角统计块：大数值 + 小标签
     auto *tile = new QFrame;
-    tile->setStyleSheet(QLatin1String(kTileQss));
+    tile->setObjectName(QStringLiteral("dlgTile"));
+    tile->setStyleSheet(tileQss());
     auto *lay = new QVBoxLayout(tile);
     lay->setContentsMargins(14, 10, 14, 9);
     lay->setSpacing(1);
@@ -175,7 +193,8 @@ QWidget *SettingsDialog::rowTile(const QString &text, QWidget *content,
                                  const QString &tooltip) {
     // 浅色圆角分组行：左侧说明文字 + 右侧控件
     auto *tile = new QFrame;
-    tile->setStyleSheet(QLatin1String(kTileQss));
+    tile->setObjectName(QStringLiteral("dlgTile"));
+    tile->setStyleSheet(tileQss());
     auto *lay = new QHBoxLayout(tile);
     lay->setContentsMargins(14, 9, 12, 9);
     lay->setSpacing(8);
@@ -201,10 +220,14 @@ QWidget *SettingsDialog::stepper(int lo, int hi, int value, QSpinBox **outSpin) 
     spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
     spin->setAlignment(Qt::AlignCenter);
     spin->setFixedSize(54, 28);
+    // 透明模式下步进器底色也转半透明，避免数字框成为一块实心白
+    const QString spinBg = theme::ghostMode()
+                               ? theme::rgba(QStringLiteral("#ffffff"), 110)
+                               : QStringLiteral("white");
     spin->setStyleSheet(QStringLiteral(
-        "QSpinBox { background:white; border:1px solid #dbe3e6;"
+        "QSpinBox { background:%1; border:1px solid #dbe3e6;"
         " border-radius:8px; color:#2f3e46; font-size:14px; font-weight:600; }"
-        "QSpinBox:focus { border:1px solid #3fa26b; }"));
+        "QSpinBox:focus { border:1px solid #3fa26b; }").arg(spinBg));
     auto *minus = new IconButton(QStringLiteral("minus"),
                                  QLatin1String(theme::GREEN), 28, 12,
                                  QStringLiteral("减少"));

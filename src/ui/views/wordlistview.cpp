@@ -45,7 +45,10 @@ void WordListView::setWords(const QList<Word> &words) {
     m_shown.clear();
     m_hover = -1;
     // 高度 = 全部行，宽度由宿主滚动区撑满（widgetResizable=true）
-    setMinimumHeight(m_words.size() * ROW_H);
+    // 词条数 × 行高 用 64 位累加并对 QWIDGETSIZE_MAX 截断：
+    // int 溢出会得到负的 minimumHeight，导致滚动区布局异常
+    const qint64 total = static_cast<qint64>(m_words.size()) * ROW_H;
+    setMinimumHeight(static_cast<int>(qMin(total, qint64(QWIDGETSIZE_MAX))));
     update();
 }
 

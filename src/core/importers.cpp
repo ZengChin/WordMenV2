@@ -602,8 +602,19 @@ std::optional<ParsedBook> parseCsv(const QString &path, QString *err) {
                              QJsonArray());
         }
     } else {
-        // 通用路径：前两列为 word/释义（无表头识别，全部按数据行处理）
-        for (const QStringList &row : rows) {
+        // 通用路径：前两列为 word/释义
+        // 表头启发式：首行第一列是 word/单词/英文，或第二列是 释义/中文/意思，
+        // 判为表头并跳过，避免表头被当成词条导入；无表头 CSV 首行仍按数据处理。
+        // （header 已在上面 trim + toLower，中文字段不受影响）
+        const QString c0 = header.value(0);
+        const QString c1 = header.value(1);
+        const bool firstRowIsHeader =
+            c0 == QLatin1String("word") || c0 == QStringLiteral("单词") ||
+            c0 == QStringLiteral("英文") ||
+            c1 == QLatin1String("translation") || c1 == QStringLiteral("释义") ||
+            c1 == QStringLiteral("中文") || c1 == QStringLiteral("意思");
+        for (int r = firstRowIsHeader ? 1 : 0; r < rows.size(); ++r) {
+            const QStringList &row = rows.at(r);
             if (row.size() < 2)
                 continue;
             const QString word = row.at(0).trimmed();

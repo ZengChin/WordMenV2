@@ -187,8 +187,7 @@ bool BookManager::deleteBook(int bookId, QString *err) {
             *err = QStringLiteral("内置词书不可删除: %1").arg(book->name);
         return false;
     }
-    // 清理 words 和 study_state，再删 books 记录
-    repo.clearWordsForBook(bookId);
+    // repo.deleteBook 内部会连带清理 words / study_state 与相关 meta 键
     repo.deleteBook(bookId);
     if (!book->filePath.isEmpty())
         QFile::remove(book->filePath);  // 删除失败不致命

@@ -107,6 +107,11 @@ void drawIcon(QPainter &p, const QString &name, const QColor &color) {
         p.drawLine(QPointF(s * 0.5, s * 0.62), QPointF(s * 0.5, s * 0.84));
     } else if (name == QLatin1String("minimize")) {
         p.drawLine(QPointF(s * 0.28, s * 0.5), QPointF(s * 0.72, s * 0.5));
+    } else if (name == QLatin1String("maximize")) {  // 最大化：单空心圆角矩形
+        p.drawRoundedRect(rect, 6, 6);
+    } else if (name == QLatin1String("restore")) {  // 还原：双框叠放（后框右上偏移）
+        p.drawRoundedRect(rect, 6, 6);
+        p.drawRoundedRect(QRectF(m + 6, m - 6, rect.width(), rect.height()), 6, 6);
     } else if (name == QLatin1String("close")) {
         p.drawLine(QPointF(s * 0.32, s * 0.32), QPointF(s * 0.68, s * 0.68));
         p.drawLine(QPointF(s * 0.68, s * 0.32), QPointF(s * 0.32, s * 0.68));

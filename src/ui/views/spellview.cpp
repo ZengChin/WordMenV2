@@ -233,8 +233,12 @@ void SpellView::submit() {
     if (m_locked || m_words.isEmpty() || m_index >= m_words.size())
         return;
     const QString text = m_inputEdit->text().trimmed();
-    if (text.isEmpty())
+    if (text.isEmpty()) {
+        // 空输入不再静默忽略：给出短提示，避免用户以为按回车没反应
+        setFeedback(QStringLiteral("请先输入拼写"),
+                    QLatin1String(theme::INK_SOFT), 1200, nullptr);
         return;
+    }
     const Word &word = m_words[m_index];
     if (text.compare(word.text, Qt::CaseInsensitive) == 0) {
         ++m_correctCount;
@@ -278,18 +282,18 @@ void SpellView::pronounce() {
 // ------------------------------------------------------------ 反馈定时
 void SpellView::setFeedback(const QString &text, const QString &color, int ms,
                             const std::function<void()> &onDone) {
-    clearTimer();
+    // 代际令牌：新反馈/清除时旧的待触发回调自动失效。
+    // 不再持有 QTimer 成员——避免「回调里再置空指针」的时序依赖与对象泄漏。
+    const int token = ++m_feedbackToken;
     m_feedbackLabel->setStyleSheet(
         QStringLiteral("color:%1; font-size:20px; font-weight:600;").arg(color));
     m_feedbackLabel->setText(text);
-    m_feedbackTimer = new QTimer(this);
-    m_feedbackTimer->setSingleShot(true);
-    connect(m_feedbackTimer, &QTimer::timeout, this, [this, onDone] {
-        m_feedbackTimer = nullptr;
+    QTimer::singleShot(ms, this, [this, token, onDone] {
+        if (token != m_feedbackToken)
+            return;  // 已被更新的反馈或清除操作取代
         if (onDone)
             onDone();
     });
-    m_feedbackTimer->start(ms);
 }
 
 void SpellView::hideFeedback(bool clearInput) {
@@ -300,11 +304,8 @@ void SpellView::hideFeedback(bool clearInput) {
 }
 
 void SpellView::clearTimer() {
-    if (m_feedbackTimer != nullptr) {
-        m_feedbackTimer->stop();
-        m_feedbackTimer->deleteLater();
-        m_feedbackTimer = nullptr;
-    }
+    // 使尚未触发的反馈回调失效（无需销毁对象）
+    ++m_feedbackToken;
 }
 
 void SpellView::clearFeedback() {

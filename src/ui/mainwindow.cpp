@@ -11,8 +11,10 @@
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
+#include <QParallelAnimationGroup>
 #include <QPen>
 #include <QPoint>
+#include <QPropertyAnimation>
 #include <QRectF>
 #include <QStackedWidget>
 #include <QTimer>
@@ -167,12 +169,15 @@ void MainWindow::onGhost(bool checked) {
     m_ctx.config().ghostMode = checked;
     theme::setGhostMode(checked);        // 卡片/进度条变超透明
     applyFgOpacity(m_ctx.config().uiOpacity);  // 刷新菜单栏透明度
-    for (QWidget *w : QApplication::allWidgets()) {  // 全量重绘
+    // 只重绘本窗口子树。QApplication::allWidgets() 会把弹出层等无关窗口
+    // 也卷入重绘，造成无谓开销； PillButton 需要重建底色缓存故单独 refresh。
+    for (QWidget *w : findChildren<QWidget *>()) {
         if (auto *pill = qobject_cast<PillButton *>(w))
             pill->refresh();  // 按钮底色随透明模式隐形（文字保留）
         else
             w->update();
     }
+    update();  // 自身背景与描边同步重绘
 }
 
 void MainWindow::showOpacityDial() {
@@ -222,14 +227,23 @@ void MainWindow::onFold(bool checked) {
     m_ctx.config().autoHide = checked;
     if (!checked && m_contentHidden)
         restoreContent();
+    // 按开关启停轮询：关闭期间定时器不空转
+    if (m_autoHideTimer != nullptr)
+        checked ? m_autoHideTimer->start() : m_autoHideTimer->stop();
 }
 
 void MainWindow::startAutoHideWatch() {
     // 分层窗口透明区不可靠地触发 hover 事件，改为定时检测鼠标是否在窗口矩形内
-    m_autoHideTimer = new QTimer(this);
-    m_autoHideTimer->setInterval(120);
-    connect(m_autoHideTimer, &QTimer::timeout, this, &MainWindow::checkAutoHide);
-    m_autoHideTimer->start();
+    if (m_autoHideTimer == nullptr) {
+        m_autoHideTimer = new QTimer(this);
+        m_autoHideTimer->setInterval(120);
+        connect(m_autoHideTimer, &QTimer::timeout, this, &MainWindow::checkAutoHide);
+    }
+    // 仅在开启自动隐藏时运行，避免关闭态每 120ms 空转唤醒
+    if (m_ctx.config().autoHide)
+        m_autoHideTimer->start();
+    else
+        m_autoHideTimer->stop();
 }
 
 void MainWindow::checkAutoHide() {
@@ -304,6 +318,62 @@ void MainWindow::runHideAnim(double target) {
 }
 
 // ------------------------------------------------------------ 视图切换
+void MainWindow::switchPage(QWidget *target, bool forward) {
+    // 方向感知的克制过渡：目标页淡入 + 轻微水平滑动（前进自右、后退自左）。
+    // 只动目标页，旧页随 QStackedWidget 即时隐藏，露出的缝隙是窗口渐变背景，
+    // 视觉上即「新内容滑入」；动画每帧写 pos，可自愈布局重排导致的复位。
+    if (target == nullptr || m_stack->currentWidget() == target)
+        return;
+
+    // 中断上一次未完成的过渡，清理其残留的透明效果
+    if (m_pageAnim != nullptr) {
+        m_pageAnim->stop();  // DeleteWhenStopped 会自动销毁
+        m_pageAnim = nullptr;
+    }
+    if (m_animTarget != nullptr) {
+        m_animTarget->setGraphicsEffect(nullptr);
+        m_animTarget = nullptr;
+    }
+
+    m_stack->setCurrentWidget(target);
+
+    auto *fade = new QGraphicsOpacityEffect(target);
+    fade->setOpacity(0.0);
+    target->setGraphicsEffect(fade);
+
+    constexpr int kSlide = 40;      // 滑动位移（px）
+    constexpr int kDuration = 220;  // 时长（ms）
+    const QPoint endPos = target->pos();
+    const QPoint startPos =
+        endPos + QPoint(forward ? kSlide : -kSlide, 0);
+
+    auto *slideAnim = new QPropertyAnimation(target, "pos");
+    slideAnim->setStartValue(startPos);
+    slideAnim->setEndValue(endPos);
+    slideAnim->setDuration(kDuration);
+    slideAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto *fadeAnim = new QPropertyAnimation(fade, "opacity");
+    fadeAnim->setStartValue(0.0);
+    fadeAnim->setEndValue(1.0);
+    fadeAnim->setDuration(kDuration);
+    fadeAnim->setEasingCurve(QEasingCurve::OutCubic);
+
+    auto *group = new QParallelAnimationGroup(this);
+    group->addAnimation(slideAnim);
+    group->addAnimation(fadeAnim);
+    connect(group, &QParallelAnimationGroup::finished, this, [this, target] {
+        // 过渡结束移除效果，避免常驻渲染开销（不透明度<1 时由 applyFgOpacity 管）
+        target->setGraphicsEffect(nullptr);
+        if (m_animTarget == target)
+            m_animTarget = nullptr;
+        m_pageAnim = nullptr;
+    });
+    m_pageAnim = group;
+    m_animTarget = target;
+    group->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
 void MainWindow::startSession(const QString &mode) {
     // 设置即时生效
     m_ctx.service->batchSize = m_ctx.config().batchSize;
@@ -322,45 +392,45 @@ void MainWindow::startSession(const QString &mode) {
     }
     m_ctx.service->saveSession(*session);
     m_studyView->begin(*session);
-    m_stack->setCurrentWidget(m_studyView);
+    switchPage(m_studyView, true);
 }
 
 void MainWindow::goHome() {
     m_homeView->refresh();
-    m_stack->setCurrentWidget(m_homeView);
+    switchPage(m_homeView, false);
 }
 
 void MainWindow::beginSpell() {
     // 完成页点击「开始拼写」后进入拼写练习
     m_spellView->begin(m_studyView->session());
-    m_stack->setCurrentWidget(m_spellView);
+    switchPage(m_spellView, true);
 }
 
 void MainWindow::openWordList() {
     m_wordListView->refresh();
-    m_stack->setCurrentWidget(m_wordListView);
+    switchPage(m_wordListView, true);
 }
 
 void MainWindow::openBookManage() {
     m_bookManageView->refresh();
-    m_stack->setCurrentWidget(m_bookManageView);
+    switchPage(m_bookManageView, true);
 }
 
 void MainWindow::openImportBook() {
     m_importBookView->reset();
-    m_stack->setCurrentWidget(m_importBookView);
+    switchPage(m_importBookView, true);
 }
 
 void MainWindow::backToBookManage() {
     m_bookManageView->refresh();
-    m_stack->setCurrentWidget(m_bookManageView);
+    switchPage(m_bookManageView, false);
 }
 
 void MainWindow::onImportDone() {
     // 导入成功后刷新词书管理页并返回
     m_bookManageView->refresh();
     emit m_bookManageView->bookSwitched();
-    m_stack->setCurrentWidget(m_bookManageView);
+    switchPage(m_bookManageView, false);
 }
 
 // ------------------------------------------------------------ 原生拖边缩放

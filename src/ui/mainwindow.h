@@ -6,6 +6,7 @@
 
 class QStackedWidget;
 class QVariantAnimation;
+class QParallelAnimationGroup;
 class QTimer;
 class QPainter;
 
@@ -62,6 +63,7 @@ private:
     void runHideAnim(double target);
 
     // ---- 视图切换 ----
+    void switchPage(QWidget *target, bool forward);  // 带过渡动画的页面切换
     void startSession(const QString &mode);
     void goHome();
     void beginSpell();
@@ -91,6 +93,8 @@ private:
     double m_hideProgress = 0.0;   // 隐藏动画进度 0=显示 1=隐藏
     QVariantAnimation *m_hideAnim = nullptr;
     QTimer *m_autoHideTimer = nullptr;
+    QParallelAnimationGroup *m_pageAnim = nullptr;  // 页面切换过渡动画
+    QWidget *m_animTarget = nullptr;  // 当前正在过渡的页面（用于中断清理）
 };
 
 }  // namespace wordmem

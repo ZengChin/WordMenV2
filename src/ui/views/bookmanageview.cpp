@@ -31,6 +31,12 @@ namespace wordmem {
 
 namespace {
 
+// 面色/边框色的透明模式适配：ghost 下转为半透明，避免实心色块浮在透明窗口上突兀；
+// 普通模式原样返回。词书行、当前词书块、标签、按钮的底色统一走这里。
+QString surfaceColor(const QString &hex, int ghostAlpha) {
+    return theme::ghostMode() ? theme::rgba(hex, ghostAlpha) : hex;
+}
+
 // 格式下拉项：显示文本 + 传给 BookManager 的 fmt 值（空串表示自动识别）
 const struct {
     const char *label;
@@ -162,8 +168,9 @@ void BookManageView::buildCurrentBlock() {
     // 类型选择器会级联给内部文字标签加上边框，形成多余的线框
     block->setStyleSheet(QStringLiteral(
                              "#curBlock { background:%1; border-radius:10px;"
-                             " border:1px solid #cfe5d8; }")
-                             .arg(QLatin1String(theme::GREEN_BG)));
+                             " border:1px solid %2; }")
+                             .arg(surfaceColor(QLatin1String(theme::GREEN_BG), 46),
+                                  surfaceColor(QStringLiteral("#cfe5d8"), 90)));
     auto *lay = new QVBoxLayout(block);
     lay->setContentsMargins(14, 10, 14, 10);
     lay->setSpacing(3);
@@ -309,14 +316,18 @@ QFrame *BookManageView::bookRow(const Book &book, int activeId, bool deletable) 
         row->setStyleSheet(QStringLiteral(
                                "#bookRow { background:%1; border-radius:8px;"
                                " border:1px solid %2; }")
-                               .arg(QLatin1String(theme::GREEN_BG),
-                                    QLatin1String(theme::GREEN_ICON)));
+                               .arg(surfaceColor(QLatin1String(theme::GREEN_BG), 55),
+                                    surfaceColor(QLatin1String(theme::GREEN_ICON),
+                                                 140)));
     } else {
         row->setCursor(Qt::PointingHandCursor);
         row->setStyleSheet(QStringLiteral(
-            "#bookRow { background:#f4f7f8; border-radius:8px;"
+            "#bookRow { background:%1; border-radius:8px;"
             " border:1px solid transparent; }"
-            "#bookRow:hover { background:#edf2f3; border-color:#dbe3e6; }"));
+            "#bookRow:hover { background:%2; border-color:%3; }")
+            .arg(surfaceColor(QStringLiteral("#f4f7f8"), 34),
+                 surfaceColor(QStringLiteral("#edf2f3"), 62),
+                 surfaceColor(QStringLiteral("#dbe3e6"), 110)));
         connect(row, &BookRowFrame::clicked, this,
                 [this, id = book.id] { switchBook(id); });
     }
@@ -341,22 +352,26 @@ QFrame *BookManageView::bookRow(const Book &book, int activeId, bool deletable) 
         auto *tag = new QLabel(QStringLiteral("使用中"), row);
         tag->setStyleSheet(QStringLiteral(
             "color:%1; font-size:11px; font-weight:600; padding:2px 8px;"
-            " border:1px solid #cfe5d8; border-radius:10px; background:white;")
-                               .arg(QLatin1String(theme::GREEN)));
+            " border:1px solid %2; border-radius:10px; background:%3;")
+                               .arg(QLatin1String(theme::GREEN),
+                                    surfaceColor(QStringLiteral("#cfe5d8"), 90),
+                                    surfaceColor(QStringLiteral("#ffffff"), 70)));
         lay->addWidget(tag);
     } else {
         auto *btn = new QPushButton(QStringLiteral("切换"), row);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFixedHeight(26);
         btn->setStyleSheet(QStringLiteral(
-                               "QPushButton { color:%1; border:1px solid #cfe5d8;"
+                               "QPushButton { color:%1; border:1px solid %4;"
                                " border-radius:13px; padding:0 12px;"
-                               " font-size:12px; background:white; }"
+                               " font-size:12px; background:%5; }"
                                "QPushButton:hover { background:%2;"
                                " border-color:%3; }")
                                .arg(QLatin1String(theme::GREEN),
-                                    QLatin1String(theme::GREEN_BG),
-                                    QLatin1String(theme::GREEN_ICON)));
+                                    surfaceColor(QLatin1String(theme::GREEN_BG), 90),
+                                    QLatin1String(theme::GREEN_ICON),
+                                    surfaceColor(QStringLiteral("#cfe5d8"), 90),
+                                    surfaceColor(QStringLiteral("#ffffff"), 70)));
         connect(btn, &QPushButton::clicked, this,
                 [this, id = book.id] { switchBook(id); });
         lay->addWidget(btn);

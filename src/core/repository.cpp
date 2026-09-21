@@ -1,5 +1,6 @@
 #include "core/repository.h"
 
+#include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSqlError>
@@ -82,8 +83,11 @@ Repository::Repository(const QString &dbPath) {
     for (const QString &stmt : QString(kSchema).split(QLatin1Char(';'),
                                                       Qt::SkipEmptyParts)) {
         const QString trimmed = stmt.trimmed();
-        if (!trimmed.isEmpty())  // 跳过末尾换行产生的空语句，避免 "empty query" 告警
-            q.exec(trimmed);
+        if (!trimmed.isEmpty()) {  // 跳过末尾换行产生的空语句，避免 "empty query" 告警
+            if (!q.exec(trimmed))
+                qWarning() << "建表语句执行失败:" << q.lastError().text()
+                           << trimmed;
+        }
     }
     migrate();
 }
@@ -268,7 +272,19 @@ void Repository::clearWordsForBook(int bookId) {
 }
 
 void Repository::deleteBook(int bookId) {
+    // 连带清理 words / study_state，并按词书隔离口径清除会话与批次元数据，
+    // 避免遗留 session_new:<id> / completed_batches:<id> 等孤儿键
+    clearWordsForBook(bookId);
     QSqlQuery q(m_db);
+    q.prepare(QLatin1String(
+        "DELETE FROM meta WHERE key IN (?,?,?)"));
+    q.addBindValue(QStringLiteral("session_new:%1").arg(bookId));
+    q.addBindValue(QStringLiteral("session_review:%1").arg(bookId));
+    q.addBindValue(QStringLiteral("completed_batches:%1").arg(bookId));
+    q.exec();
+    // 活动指针指向被删词书时清空，下次启动由 ensureDefaultActive 重新指派
+    if (getMeta(QLatin1String("active_book_id")) == QString::number(bookId))
+        setMeta(QLatin1String("active_book_id"), QString());
     q.prepare(QLatin1String("DELETE FROM books WHERE id=?"));
     q.addBindValue(bookId);
     q.exec();

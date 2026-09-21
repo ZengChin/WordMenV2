@@ -10,7 +10,6 @@
 #include "core/models.h"
 
 class QLabel;
-class QTimer;
 
 namespace wordmem {
 
@@ -72,7 +71,7 @@ private:
     int m_missed = 0;         // 曾拼错的词数
     bool m_wordAttempted = false;  // 当前词是否拼错过
     bool m_locked = false;         // 正确反馈期间锁定输入
-    QTimer *m_feedbackTimer = nullptr;
+    int m_feedbackToken = 0;       // 反馈代际：递增使未触发的旧回调失效
 
     IconButton *m_btnBack = nullptr;
     QLabel *m_progressLabel = nullptr;

@@ -29,8 +29,12 @@ QString boldHeadword(const QString &sentence, const QString &word) {
     const QString escaped = sentence.toHtmlEscaped();
     if (word.isEmpty())
         return escaped;
+    // 前后向断言代替 \b：对含连字符/撇号（e-mail、don't）的词，
+    // \b 在非单词字符边界会失效；断言只挡字母，更可靠。
+    // 注意例句已 HTML 转义，词的匹配形态也要转义后再进正则。
     const QRegularExpression re(
-        QStringLiteral("\\b(%1)\\b").arg(QRegularExpression::escape(word)),
+        QStringLiteral("(?<![A-Za-z])(%1)(?![A-Za-z])")
+            .arg(QRegularExpression::escape(word.toHtmlEscaped())),
         QRegularExpression::CaseInsensitiveOption);
     QString out = escaped;
     out.replace(re, QStringLiteral("<b>\\1</b>"));
@@ -300,7 +304,8 @@ void StudyView::switchExample(int delta) {
     const int n = m_currentItem->word.examples.size();
     if (n == 0)
         return;
-    m_exampleIndex = (m_exampleIndex + delta) % n;
+    // 取模结果归一到 [0, n-1]：delta 为负时 C++ 的 % 会留下负余数
+    m_exampleIndex = ((m_exampleIndex + delta) % n + n) % n;
     renderExample();
 }
 
